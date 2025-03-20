@@ -25,3 +25,6 @@ Manifest.toml
 
 # Ignore these ._ files for mac users
 ._*
+
+# Add data folder to ignore file
+data/

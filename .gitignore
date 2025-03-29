@@ -28,3 +28,4 @@ Manifest.toml
 
 # Add data folder to ignore file
 data/
+slides/

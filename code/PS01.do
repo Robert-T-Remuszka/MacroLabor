@@ -62,6 +62,18 @@ gen HhInc_Real = HhInc * 100 / cpi
 * Num children in hh
 ren d11107 NumChildren
 
+* Race
+ren d11112LL Race
+
+* State of residence
+ren l11101 State
+
+* Employment status
+ren e11102 EmpStat
+
+* Year of birth
+gen Yob = year - Age
+
 ******* FIRST SAMPLE SELECTION *******
 keep if `samp'
 
@@ -76,12 +88,80 @@ bys PerId  (year): gen ForeverMarried = YearsMarried == _N
 * How long is the person in the panel for?
 bys PerId (year): gen T = _N
 
-******** SECOND SAMPLE SELECTION *******
-keep if (ForeverSingle | ForeverMarried) & T >= 4
+*********************************** SECOND SAMPLE SELECTION ********************************
+keep if ForeverMarried & T >= 4
 order HhId PerId year RelToHead Age Gender MaritalStat ForeverMarried ForeverSingle T
 sort year HhId PerId
 
+/*********************************** THIRD SAMPLE SELECTION ********************************
+Further drop those who are
+1. Less than or equal to 0 income
+
+Then, on the resulting distribution of income drop those,
+2. Between the 1st and 99th percentile of the resulting distribution at leat four times
+
+Note: I choose 4 time because we need at least 4 observations to estimate the moments of the
+income process.
+
+3. Drop those who were an outlier even once: outlier def less than p1 or greater than p99
+*/
+drop if HhInc_Real <= 0
+loc lowercut 1
+loc uppercut 99
+egen p`lowercut' = pctile(HhInc_Real), p(`lowercut')
+egen p`uppercut' = pctile(HhInc_Real), p(`uppercut')
+egen IncomeCriteria_count = total(HhInc_Real > p`lowercut' & HhInc_Real < p`uppercut'), by(PerId)
+keep if IncomeCriteria_count >= 4
+drop p`lowercut' p`uppercut'
+
+loc outlier_lower 1
+loc outlier_upper 99
+egen p`outlier_lower' = pctile(HhInc_Real), p(`outlier_lower')
+egen p`outlier_upper' = pctile(HhInc_Real), p(`outlier_upper')
+egen Outlier = total((HhInc_Real < p`outlier_lower' | HhInc_Real > p`outlier_upper') & !mi(HhInc_Real)), by(PerId)
+drop if Outlier
+
+gen logY = log(HhInc_Real)
 /********************************************************************************************
 ESTIMATION
 ********************************************************************************************/
+loc rho = 0.97 // If you set this to 1 you are back to BPP
 xtset PerId year
+sort PerId year
+gen year2 = year^2
+loc residvars i.year i.Yob /*year year2*/ i.Coll i.NumChildren i.Race i.State i.EmpStat
+
+* Calculate residual income
+reg logY `residvars'
+predict double y, resid
+
+* Generate pseudo first difference of resid income
+gen dy = y - `rho' * l.y
+
+* Generate leads and lags of the pseudo first diff
+foreach h of numlist -1/1 {
+
+    if `h' < 0 {
+        loc lag = -1 * `h'
+        gen dy_lag`lag' = l`lag'.dy
+    }
+    if `h' > 0 {
+        gen dy_lead`h' = f`h'.dy
+    }
+
+}
+
+* Estimate variance transitory shock
+di "***************************************************"
+di "              VARIANCE OF TRANSITORY SHOCK"
+di "***************************************************"
+qui corr dy dy_lead1, c
+di -`r(cov_12)'/`rho'
+
+* Estimate variance of persistent shock
+di "***************************************************"
+di "              VARIANCE OF PERMANENT SHOCK"
+di "***************************************************"
+gen ThreePeriodSum = `rho'^2 * dy_lag1 + `rho' * dy + dy_lead1
+qui corr dy ThreePeriodSum, c
+di `r(cov_12)'/`rho'

@@ -88,6 +88,9 @@ bys PerId  (year): gen ForeverMarried = YearsMarried == _N
 * How long is the person in the panel for?
 bys PerId (year): gen T = _N
 
+* Keep only heads of household
+keep if RelToHead == 1
+
 *********************************** SECOND SAMPLE SELECTION ********************************
 keep if ForeverMarried & T >= 4
 order HhId PerId year RelToHead Age Gender MaritalStat ForeverMarried ForeverSingle T

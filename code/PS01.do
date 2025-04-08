@@ -132,7 +132,7 @@ loc rho = 0.97 // If you set this to 1 you are back to BPP
 xtset PerId year
 sort PerId year
 gen year2 = year^2
-loc residvars i.year i.Yob /*year year2*/ i.Coll i.NumChildren i.Race i.State i.EmpStat
+loc residvars /*i.year i.Yob*/ year year2 i.Coll i.NumChildren i.Race i.State i.EmpStat
 
 * Calculate residual income
 reg logY `residvars'

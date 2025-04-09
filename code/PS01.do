@@ -125,6 +125,9 @@ egen Outlier = total((HhInc_Real < p`outlier_lower' | HhInc_Real > p`outlier_upp
 drop if Outlier
 
 gen logY = log(HhInc_Real)
+
+* Save this data for future problem sets
+save "$data/PSID_Analysis_Sample.dta", replace
 /********************************************************************************************
 ESTIMATION
 ********************************************************************************************/
